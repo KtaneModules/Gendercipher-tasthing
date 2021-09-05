@@ -108,7 +108,7 @@ public class gendercipher : MonoBehaviour
         Debug.LogFormat("[Gendercipher #{0}] Therefore, the decrypted word is {1}.", moduleId, word);
 
         displayedFlags = new int[2].Select(x => x = rnd.Range(0, 8)).ToArray();
-        var displayOrder = bomb.GetSerialNumberNumbers().Last() % 2 == 0 ? new int[] { 0, 1 } : new int[] { 1, 0 };
+        var displayOrder = bomb.GetSerialNumberLetters().Any(x => "AEIOU".Contains(x)) ? new int[] { 0, 1 } : new int[] { 1, 0 };
         Debug.LogFormat("[Gendercipher #{0}] Apply the effects of the {1} display first.", moduleId, displayOrder[0] == 0 ? "top" : "side");
         Debug.LogFormat("[Gendercipher #{0}] Displayed flag patterns: {1}.", moduleId, displayedFlags.Select(x => flagNames[x]).Join(", "));
 
@@ -140,16 +140,13 @@ public class gendercipher : MonoBehaviour
                     solutionWord = (x1 % 8) + 8 * (y1 % 8);
                     break;
                 case 5:
-                    var x2 = solutionWord % 8;
-                    var y2 = solutionWord / 8;
-                    y2 = (y2 + 32) % 64;
-                    solutionWord = (x2 % 8) + 8 * (y2 % 8);
+                    solutionWord = (solutionWord + 32) % 64;
                     break;
                 case 6:
+                    solutionWord = (solutionWord + 32 % 64);
                     var x3 = solutionWord % 8;
                     var y3 = solutionWord / 8;
                     x3 = (x3 + 4) % 8;
-                    y3 = (y3 + 32) % 64;
                     solutionWord = (x3 % 8) + 8 * (y3 % 8);
                     break;
                 case 7:
