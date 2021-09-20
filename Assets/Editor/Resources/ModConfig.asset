@@ -17,6 +17,6 @@ MonoBehaviour:
   description: "I got to this flavor text before any idiot could.\r\n\r\nModule idea
     by Vincology, implementation by TasThing.\r\n\r\nManual HTML: https://ktane.timwi.de/HTML/Gendercipher.html\r\nManual
     PDF: https://ktane.timwi.de/PDF/Gendercipher.pdf"
-  version: 1.0.1
+  version: 1.0.3
   outputFolder: build
   previewImage: {fileID: 2800000, guid: 8de4de8c92eb3ea46a1d9ab0fd95ede4, type: 3}

@@ -19,6 +19,7 @@ public class gendercipher : MonoBehaviour
     public Renderer[] buttonSymbols;
     public Renderer[] screens;
     public Texture[] symbols;
+    public TextMesh[] colorblindTexts;
     public Color[] buttonColors;
 
     public Color[] pride;
@@ -67,6 +68,8 @@ public class gendercipher : MonoBehaviour
         }
         submitButton.OnInteract += delegate () { Submit(); return false; };
         allFlagPatterns = new Color[][] { pride, bisexual, pansexual, transgender, genderqueer, nonbinary, asexual, aromantic };
+        foreach (GameObject t in colorblindTexts.Select(x => x.gameObject))
+            t.SetActive(GetComponent<KMColorblindMode>().ColorblindModeActive);
     }
 
     private void Start()
@@ -100,6 +103,8 @@ public class gendercipher : MonoBehaviour
             buttonSymbols[i].material.mainTexture = symbols[displayedSymbols[i]];
             buttonSymbols[i].transform.localEulerAngles = new Vector3(90f, (encryptionDirectionClockwise ? 45f : -45f) * displayedRotations[i], 0f);
             buttonRenders[i].material.color = buttonColors[rotations[i] / 8];
+            var letters = rotations.Select(x => "WCPG"[x / 8]).ToArray();
+            colorblindTexts[0].text = string.Format("{0}{1}\n{2}{3}", letters[0], letters[1], letters[2], letters[3]);
         }
         originalRotations = displayedRotations.ToArray();
         Debug.LogFormat("[Gendercipher #{0}] The displayed gender symbols are: {1}.", moduleId, displayedSymbols.Select(x => genderNames[x]).Join(", "));
@@ -163,11 +168,11 @@ public class gendercipher : MonoBehaviour
             newRotations[i] = alphabet.IndexOf(newWord[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) >= 0 ? alphabet.IndexOf(newWord[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) : 26 + (alphabet.IndexOf(newWord[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]));
         solution = newRotations.Select(x => x % 8).ToArray();
         if (!encryptionDirectionClockwise)
-            solution.Select(x => 8 - x);
+            solution = solution.Select(x => x = (8 - x) % 8).ToArray();
         Debug.LogFormat("[Gendercipher #{0}] Set each symbol to these rotations in order: {1}.", moduleId, solution.Join(", "));
 
         for (int i = 0; i < 2; i++)
-            StartCoroutine(CycleDisplay(screens[i], i));
+            StartCoroutine(CycleDisplay(screens[i], i, colorblindTexts[i + 1]));
     }
 
     private void PressButton(KMSelectable button)
@@ -228,13 +233,12 @@ public class gendercipher : MonoBehaviour
         {
             module.HandlePass();
             moduleSolved = true;
-            audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.CorrectChime, transform); // REPLACE
+            audio.PlaySoundAtTransform("solve", transform);
             Debug.LogFormat("[Gendercipher #{0}] That was correct. Module solved!", moduleId);
         }
         else
         {
             module.HandleStrike();
-            // SOUND
             Debug.LogFormat("[Gendercipher #{0}] That was incorrect. Strike!", moduleId);
         }
     }
@@ -244,7 +248,7 @@ public class gendercipher : MonoBehaviour
         var elapsed = 0f;
         var duration = .25f;
         var startRotation = buttonSymbols[ix].transform.localRotation;
-        var endRotation = Quaternion.Euler(90f, 45f * end, 0f);
+        var endRotation = Quaternion.Euler(90f, (encryptionDirectionClockwise ? 45f : -45f) * end, 0f);
         while (elapsed < duration)
         {
             buttonSymbols[ix].transform.localRotation = Quaternion.Slerp(startRotation, endRotation, elapsed / duration);
@@ -258,16 +262,19 @@ public class gendercipher : MonoBehaviour
     {
         yield return new WaitForSeconds(1f);
         longPresses[ix] = true;
+        audio.PlaySoundAtTransform("deedleweep", buttons[ix].transform);
     }
 
-    private IEnumerator CycleDisplay(Renderer screen, int ix)
+    private IEnumerator CycleDisplay(Renderer screen, int ix, TextMesh t)
     {
         var pattern = allFlagPatterns[displayedFlags[ix]];
+        var letters = new string[] { "ROYGBP", "BPI", "IYC", "CIW", "PWG", "YWPK", "KAWP", "KAWG", }[displayedFlags[ix]];
         var duration = .25f;
     restartSequence:
         foreach (Color c in pattern)
         {
             var elapsed = 0f;
+            t.text = letters[Array.IndexOf(pattern, c)].ToString();
             while (elapsed < duration)
             {
                 screen.material.color = Color.Lerp(darkGray, c, elapsed / duration);
@@ -277,6 +284,7 @@ public class gendercipher : MonoBehaviour
             screen.material.color = c;
             elapsed = 0f;
             yield return new WaitForSeconds(.25f);
+            t.text = "";
             while (elapsed < duration)
             {
                 screen.material.color = Color.Lerp(c, darkGray, elapsed / duration);
@@ -305,20 +313,75 @@ public class gendercipher : MonoBehaviour
         return true;
     }
 
-    /*
     // Twitch Plays
 #pragma warning disable 414
-    private readonly string TwitchHelpMessage = "!{0} ";
+    private readonly string TwitchHelpMessage = "!{0} <TL/TR/BL/BR> <#> [Rotates the symbol in that position clockwise # times, where # is a number from 1 to 7.] !{0} submit [Presses the submit button.] !{0} reset [Resets every symbol to its original rotation.]";
 #pragma warning restore 414
 
     private IEnumerator ProcessTwitchCommand(string input)
     {
-        yield return null;
+        input = input.Trim().ToUpperInvariant();
+        var inputArray = input.Split(' ').ToArray();
+        if (inputArray.Length == 2)
+        {
+            var directions = new string[] { "TL", "TR", "BL", "BR" };
+            var numbers = "1234567";
+            if (!directions.Contains(inputArray[0]) || !numbers.Contains(inputArray[1]) || inputArray[1].Length != 1)
+                yield break;
+            else
+            {
+                yield return null;
+                var button = buttons[Array.IndexOf(directions, inputArray[0])];
+                for (int i = 0; i < int.Parse(inputArray[1]); i++)
+                {
+                    yield return new WaitForSeconds(.1f);
+                    button.OnInteract();
+                    yield return null;
+                    button.OnInteractEnded();
+                }
+            }
+        }
+        else if (inputArray.Length == 1)
+        {
+            if (input == "SUBMIT")
+            {
+                yield return null;
+                submitButton.OnInteract();
+            }
+            else if (input == "RESET")
+            {
+                yield return null;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (displayedRotations[i] != originalRotations[i])
+                    {
+                        yield return null;
+                        buttons[i].OnInteract();
+                        yield return new WaitUntil(() => longPresses[i]);
+                        buttons[i].OnInteractEnded();
+                    }
+                }
+            }
+            else
+                yield break;
+        }
+        else
+            yield break;
     }
 
     private IEnumerator TwitchHandleForcedSolve()
     {
+        for (int i = 0; i < 4; i++)
+        {
+            while (displayedRotations[i] != solution[i])
+            {
+                yield return null;
+                buttons[i].OnInteract();
+                yield return null;
+                buttons[i].OnInteractEnded();
+            }
+        }
         yield return null;
+        submitButton.OnInteract();
     }
-    */
 }
