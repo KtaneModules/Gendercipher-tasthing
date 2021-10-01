@@ -248,7 +248,7 @@ public class gendercipher : MonoBehaviour
         var elapsed = 0f;
         var duration = .25f;
         var startRotation = buttonSymbols[ix].transform.localRotation;
-        var endRotation = Quaternion.Euler(90f, (encryptionDirectionClockwise ? 45f : -45f) * end, 0f);
+        var endRotation = Quaternion.Euler(90f, 45f * end, 0f);
         while (elapsed < duration)
         {
             buttonSymbols[ix].transform.localRotation = Quaternion.Slerp(startRotation, endRotation, elapsed / duration);
