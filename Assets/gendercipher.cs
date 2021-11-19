@@ -35,9 +35,10 @@ public class gendercipher : MonoBehaviour
 
     private int column;
     private int[] displayedSymbols;
-    private int[] rotations;
+    private int[] unprocessedRotations;
+    private int[] processedRotations;
     private int[] displayedRotations;
-    private int[] originalRotations;
+    private int[] originalDisplayedRotations;
     private string word;
     private bool encryptionDirectionClockwise;
     private int[] displayedFlags;
@@ -94,22 +95,24 @@ public class gendercipher : MonoBehaviour
         encryptionDirectionClockwise = (primeModules && !lowModules) || (!primeModules && lowModules);
         displayedSymbols = new int[4].Select(x => x = rnd.Range(0, 16)).ToArray();
         word = wordList.PickRandom();
-        rotations = new int[4];
+        unprocessedRotations = new int[4];
+        processedRotations = new int[4];
         displayedRotations = new int[4];
         for (int i = 0; i < 4; i++)
         {
-            rotations[i] = alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) >= 0 ? alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) : 26 + (alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]));
-            displayedRotations[i] = rotations[i] % 8;
+            unprocessedRotations[i] = alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) >= 0 ? alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]) : 26 + (alphabet.IndexOf(word[i]) - alphabet.IndexOf(letterTable[displayedSymbols[i]][column]));
+            processedRotations[i] = unprocessedRotations[i] % 8;
             buttonSymbols[i].material.mainTexture = symbols[displayedSymbols[i]];
-            buttonSymbols[i].transform.localEulerAngles = new Vector3(90f, (encryptionDirectionClockwise ? 45f : -45f) * displayedRotations[i], 0f);
-            buttonRenders[i].material.color = buttonColors[rotations[i] / 8];
-            var letters = rotations.Select(x => "WCPG"[x / 8]).ToArray();
+            buttonSymbols[i].transform.localEulerAngles = new Vector3(90f, (encryptionDirectionClockwise ? 45f : -45f) * processedRotations[i], 0f);
+            buttonRenders[i].material.color = buttonColors[unprocessedRotations[i] / 8];
+            var letters = unprocessedRotations.Select(x => "WCPG"[x / 8]).ToArray();
             colorblindTexts[0].text = string.Format("{0}{1}\n{2}{3}", letters[0], letters[1], letters[2], letters[3]);
         }
-        originalRotations = displayedRotations.ToArray();
+        displayedRotations = processedRotations.Select(x => !encryptionDirectionClockwise ? (8 - x) % 8 : x).ToArray();
+        originalDisplayedRotations = displayedRotations.ToArray();
         Debug.LogFormat("[Gendercipher #{0}] The displayed gender symbols are: {1}.", moduleId, displayedSymbols.Select(x => genderNames[x]).Join(", "));
         Debug.LogFormat("[Gendercipher #{0}] These correspond to the letters: {1}.", moduleId, displayedSymbols.Select(x => letterTable[x][column]).Join());
-        Debug.LogFormat("[Gendercipher #{0}] The symbols have been rotated these amounts of times {1}clockwise: {2}.", moduleId, encryptionDirectionClockwise ? "" : "counter", rotations.Join(", "));
+        Debug.LogFormat("[Gendercipher #{0}] The symbols have been rotated these amounts of times {1}clockwise: {2}.", moduleId, encryptionDirectionClockwise ? "" : "counter", unprocessedRotations.Join(", "));
         Debug.LogFormat("[Gendercipher #{0}] Therefore, the decrypted word is {1}.", moduleId, word);
 
         displayedFlags = new int[2].Select(x => x = rnd.Range(0, 8)).ToArray();
@@ -169,7 +172,8 @@ public class gendercipher : MonoBehaviour
         solution = newRotations.Select(x => x % 8).ToArray();
         if (!encryptionDirectionClockwise)
             solution = solution.Select(x => x = (8 - x) % 8).ToArray();
-        Debug.LogFormat("[Gendercipher #{0}] Set each symbol to these rotations in order: {1}.", moduleId, solution.Join(", "));
+        var directions = new[] { "U", "UR", "R", "DR", "D", "DL", "L", "UL" };
+        Debug.LogFormat("[Gendercipher #{0}] Set each symbol to these rotations in order: {1}.", moduleId, solution.Select(x => directions[x]).Join(", "));
 
         for (int i = 0; i < 2; i++)
             StartCoroutine(CycleDisplay(screens[i], i, colorblindTexts[i + 1]));
@@ -207,7 +211,7 @@ public class gendercipher : MonoBehaviour
         else
         {
             longPresses[ix] = false;
-            SetDirection(originalRotations[ix], ix);
+            SetDirection(originalDisplayedRotations[ix], ix);
         }
     }
 
@@ -228,7 +232,8 @@ public class gendercipher : MonoBehaviour
         audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonRelease, submitButton.transform);
         if (moduleSolved)
             return;
-        Debug.LogFormat("[Gendercipher #{0}] Submitted rotations: {1}.", moduleId, displayedRotations.Join(", "));
+        var directions = new[] { "U", "UR", "R", "DR", "D", "DL", "L", "UL" };
+        Debug.LogFormat("[Gendercipher #{0}] Submitted rotations: {1}.", moduleId, displayedRotations.Select(x => directions[x]).Join(", "));
         if (displayedRotations.SequenceEqual(solution))
         {
             module.HandlePass();
@@ -247,6 +252,8 @@ public class gendercipher : MonoBehaviour
     {
         var elapsed = 0f;
         var duration = .25f;
+       // if (!encryptionDirectionClockwise)
+       //     end = (8 - end) % 8;
         var startRotation = buttonSymbols[ix].transform.localRotation;
         var endRotation = Quaternion.Euler(90f, 45f * end, 0f);
         while (elapsed < duration)
@@ -353,7 +360,7 @@ public class gendercipher : MonoBehaviour
                 yield return null;
                 for (int i = 0; i < 4; i++)
                 {
-                    if (displayedRotations[i] != originalRotations[i])
+                    if (displayedRotations[i] != originalDisplayedRotations[i])
                     {
                         yield return null;
                         buttons[i].OnInteract();
