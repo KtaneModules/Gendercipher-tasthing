@@ -21,6 +21,7 @@ public class gendercipher : MonoBehaviour
     public Texture[] symbols;
     public TextMesh[] colorblindTexts;
     public Color[] buttonColors;
+    public Color solveGreen;
 
     public Color[] pride;
     public Color[] bisexual;
@@ -238,13 +239,25 @@ public class gendercipher : MonoBehaviour
         {
             module.HandlePass();
             moduleSolved = true;
-            audio.PlaySoundAtTransform("solve", transform);
+            colorblindTexts[0].text = "";
+            StartCoroutine(SolveAnimation());
             Debug.LogFormat("[Gendercipher #{0}] That was correct. Module solved!", moduleId);
         }
         else
         {
             module.HandleStrike();
             Debug.LogFormat("[Gendercipher #{0}] That was incorrect. Strike!", moduleId);
+        }
+    }
+
+    private IEnumerator SolveAnimation()
+    {
+        var waitTimes = new[] { .061f, .447f, .450f, .293f};
+        audio.PlaySoundAtTransform("solve", transform);
+        for (int i = 0; i < 4; i++)
+        {
+            yield return new WaitForSeconds(waitTimes[i]);
+            buttonRenders[i].material.color = solveGreen;
         }
     }
 
